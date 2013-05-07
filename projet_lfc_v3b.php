@@ -5,12 +5,15 @@
 textarea[readonly] {
 	/*background-color: #FF0000;*/
 	background-color: #CCCCCC;
+	color: #000000;
 }
 textarea[disabled] {
 	background-color: #CCCCCC;
+	color: #000000;
 }
 textarea {
 	background-color: #FFFFFF;
+	color: #000000;
 }
 TABLE {
 	border-collapse: collapse;
@@ -24,6 +27,7 @@ TD {
 
 <?php
 
+// Lit le stream contenant la grammaire et parse chaque ligne
 function grammar_read($buffer, array& $grammaireG, array& $grammaireD) {
 	$line_buffer='';
 	while( ($line_buffer=trim(fgets($buffer,4096)))!==false && strlen($line_buffer)>0 ) {
@@ -31,10 +35,11 @@ function grammar_read($buffer, array& $grammaireG, array& $grammaireD) {
 	}
 }
 
+// Parse la regle de grammaire
 function grammar_read_parse(&$line_buffer, array& $grammaireG, array& $grammaireD) {
-	$expression=('#^([^, \t\r\n]+)\s*(?:\\->| |>|\t)\s*([^, \t\r\n]+)$#');
+	$expression=('#^([^, \t\r\n-]+)\s*(?:->| |>|\t)\s*([^, \t\r\n]+)$#');
 	$what=array();
-	// vérification syntaxe ( correct ou pas )
+	// Vérification syntaxe ( correct ou pas )
 	if(preg_match($expression, $line_buffer, $what)) {
 		if(array_key_exists('debug',$_REQUEST)) echo 'syntaxe correcte<br/>'."\r\n";
 		$grammaireG[]=$what[1];
@@ -46,6 +51,7 @@ function grammar_read_parse(&$line_buffer, array& $grammaireG, array& $grammaire
 	return;
 }
 
+// Retourne la liste des mots pouvant donner le mot terminal donné
 function grammar_read_predecessor($mot_terminal, array& $grammaireG, array& $grammaireD) {
 	$res = "";
 	for($i=0; $i<count($grammaireG); $i++) {	
@@ -61,6 +67,7 @@ function grammar_read_predecessor($mot_terminal, array& $grammaireG, array& $gra
 	return $res;
 }
 
+// Supprime les doublons dans une liste de mots
 function nettoyer($s) {
 	$res = "";
 	$mot = "";
@@ -89,11 +96,9 @@ function nettoyer($s) {
 	return $res;
 }
 
-// On a deux chaines A,B,C (partG) et X,Y,Z (partD), on veut répertorier 
-// tous les couples (AX AY AZ BX BY ... CZ) dans l'vector résultat
+// Retourne la liste des couples possibles en combinant les mots initiaux et les mots terminaux
 function strings2vector($partG, $partD) {
-	// On a deux chaines A,B,C et X,Y,Z, on veut répertorier tous les 
-	// couples (AX AY AZ BX BY ... CZ) dans le vector 'src', ...
+	// Etant donné deux chaines A,B,C et X,Y,Z, on veut répertorier tous les couples (AX AY AZ BX BY ... CZ) dans le vector $src
 	$src=array();
 	$motG='';
 	$motD='';
@@ -126,11 +131,12 @@ function strings2vector($partG, $partD) {
 	return $src;
 }
 
+// Retourne la liste des mots donnant $partG$partD
 function questCeQuiDonneD(&$partG, &$partD, array& $grammaireG, array& $grammaireD) {
 	$res = '';
-	// On a deux chaines A,B,C et X,Y,Z, on veut répertorier tous les couples (AX AY AZ BX BY ... CZ) dans le vector 'src', ...
+	// Etant donné deux chaines A,B,C et X,Y,Z, on veut répertorier tous les couples (AX AY AZ BX BY ... CZ) dans le vector $src
 	$src = strings2vector($partG,$partD);
-	// ... pour ensuite savoir si des règles de grammaire donnent ces couples
+	// Et on veux ensuite savoir si des règles de grammaire donnent ces couples
 	for($i=0; $i<count($grammaireG); $i++) {
 		for($j=0; $j<count($src); $j++) {
 			if($src[$j]==$grammaireD[$i]) {
@@ -144,41 +150,40 @@ function questCeQuiDonneD(&$partG, &$partD, array& $grammaireG, array& $grammair
 	return $res;
 }
 
-	// Surligne les cases de façon à donner une idée de l'arbre
-	// /!\ Travaille directement avec les données globales /!\
-	// Fonction récusrive : à chaque fois qu'un couple a été trouvé, on 
-	// continue à partir de ses deux cases
-	function surlignerElmtsArbre ($ligneAnalyse, $celluleAnalyse, $top, &$nbFeuilles,array& $pyramide_cky,
-		array& $pyramide_arbre, array& $tabGrammaireG, array& $tabGrammaireD) {
-		$trouve = false;
-		for($cpt=0; $cpt<$nbFeuilles-$ligneAnalyse-1 && !$trouve; $cpt++) {
-			$asc_ligne=$nbFeuilles-1-$cpt;
-			$dsc_ligne=$ligneAnalyse+1+$cpt;
-			$asc_ind=$celluleAnalyse;
-			$dsc_ind=$celluleAnalyse+1+$cpt;
-			$listeCouplesPossibilites = strings2vector(
-				$pyramide_cky[$asc_ligne][$asc_ind],
-				$pyramide_cky[$dsc_ligne][$dsc_ind]
-			);
-			$listeTops = strings2vector($top,'');//(pyramide[ligneAnalyse][celluleAnalyse], "");
-			for($l=0; $l<count($listeTops) && !$trouve; $l++) {
-				for($k=0; $k<count($listeCouplesPossibilites) && !$trouve; $k++) {
-					for($m=0; $m<count($tabGrammaireG) && !$trouve; $m++) {
-					if($tabGrammaireG[$m]==$listeTops[$l]) {
-							if($listeCouplesPossibilites[$k]==$tabGrammaireD[$m]) {
-								$trouve = true;
-								$pyramide_arbre[$asc_ligne][$asc_ind] = substr($listeCouplesPossibilites[$k],$l,1);
-								$pyramide_arbre[$dsc_ligne][$dsc_ind] = substr($listeCouplesPossibilites[$k],$l+1);
-								surlignerElmtsArbre($asc_ligne,$asc_ind,$pyramide_arbre[$asc_ligne][$asc_ind],$nbFeuilles,$pyramide_cky,$pyramide_arbre,$tabGrammaireG,$tabGrammaireD);
-								surlignerElmtsArbre($dsc_ligne,$dsc_ind,$pyramide_arbre[$dsc_ligne][$dsc_ind],$nbFeuilles,$pyramide_cky,$pyramide_arbre,$tabGrammaireG,$tabGrammaireD);
-							}
+// Surligne les cases de façon à donner une idée de l'arbre
+// Fonction récusrive : à chaque fois qu'un couple a été trouvé, on continue à partir des deux cases qu'il a trouvé
+function surlignerElmtsArbre ($ligneAnalyse, $colonneAnalyse, $top, &$nbFeuilles,array& $pyramide_cky,
+	array& $pyramide_arbre, array& $tabGrammaireG, array& $tabGrammaireD) {
+	$trouve = false;
+	for($cpt=0; $cpt<$nbFeuilles-$ligneAnalyse-1 && !$trouve; $cpt++) {
+		$asc_ligne=$nbFeuilles-1-$cpt;
+		$dsc_ligne=$ligneAnalyse+1+$cpt;
+		$asc_ind=$colonneAnalyse;
+		$dsc_ind=$colonneAnalyse+1+$cpt;
+		$listeCouplesPossibilites = strings2vector(
+			$pyramide_cky[$asc_ligne][$asc_ind],
+			$pyramide_cky[$dsc_ligne][$dsc_ind]
+		);
+		$listeTops = strings2vector($top,'');
+		for($l=0; $l<count($listeTops) && !$trouve; $l++) {
+			for($k=0; $k<count($listeCouplesPossibilites) && !$trouve; $k++) {
+				for($m=0; $m<count($tabGrammaireG) && !$trouve; $m++) {
+				if($tabGrammaireG[$m]==$listeTops[$l]) {
+					if($listeCouplesPossibilites[$k]==$tabGrammaireD[$m]) {
+						$trouve = true;
+						$pyramide_arbre[$asc_ligne][$asc_ind] = substr($listeCouplesPossibilites[$k],$l,1);
+						$pyramide_arbre[$dsc_ligne][$dsc_ind] = substr($listeCouplesPossibilites[$k],$l+1);
+						surlignerElmtsArbre($asc_ligne,$asc_ind,$pyramide_arbre[$asc_ligne][$asc_ind],$nbFeuilles,$pyramide_cky,$pyramide_arbre,$tabGrammaireG,$tabGrammaireD);
+						surlignerElmtsArbre($dsc_ligne,$dsc_ind,$pyramide_arbre[$dsc_ligne][$dsc_ind],$nbFeuilles,$pyramide_cky,$pyramide_arbre,$tabGrammaireG,$tabGrammaireD);
 						}
 					}
-				}  
+				}
 			}
 		}
-        }
+	}
+}
 
+// Retourne la liste des fichiers ayant l'extension donnée
 function glob_ext($ext) {
 	if(!is_string($ext)) return NULL;
 	$files_ar=array();
@@ -194,6 +199,7 @@ function glob_ext($ext) {
 	return $files_ar;
 }
 
+// Fonction gérant l'interface et la boucle contenant les appels des fonctions
 function main() {
 	ini_set('max_execution_time',0);
 	$PHP_SELF=$_SERVER['PHP_SELF'];
@@ -201,8 +207,9 @@ function main() {
 	//$cmd=true;
 	//$_REQUEST['debug']=true;
 	if(array_key_exists('HTTP_HOST',$_SERVER)) {
-		if( !array_key_exists('mot',$_REQUEST) && !array_key_exists('grammaire_file',$_REQUEST) && !array_key_exists('grammaire',$_REQUEST) ) {
-			//formulaire
+		if( !array_key_exists('mot',$_REQUEST) && !array_key_exists('grammaire_file',$_REQUEST) && !array_key_exists('grammaire',$_REQUEST)
+			&& strlen(trim($_REQUEST['mot']))==0 && strlen(trim($_REQUEST['grammaire_file']))==0 && strlen(trim($_REQUEST['grammaire']))==0 ) {
+			// Affiche le formulaire ( avec AJAX )
 			echo '<script type="text/javascript"><!--'."\r\n";
 			echo <<<EOF
 
@@ -215,27 +222,11 @@ function onload() {
 	for(var i = 0; i < radio.length; i++) {
 		if(radio[i].checked) grammaire=radio[i].value;
 	}
-	//alert(grammaire);
 	if(grammaire.length>0) {
-		//setCheckedValue(document.forms['formulaire'].elements['grammaire_file'],grammaire);
 		if(grammaire=='saisie') {
-			/*document.getElementById('grammaire').disabled=false;
-			document.getElementById('grammaire2').value='';
-			document.getElementById('grammaire2').disabled=true;
-			//document.getElementById('grammaire2').readonly=false;
-			document.getElementById('solutions').value='';
-			document.getElementById('solutions').disabled=true;
-			//document.getElementById('solutions').readonly=false;*/
 			saisie();
 		}
 		else {
-			/*document.getElementById('grammaire').disabled=true;
-			grammaire_get(grammaire);
-			//document.getElementById('grammaire2').readonly=true;
-			document.getElementById('grammaire2').disabled=false;
-			solution_get(grammaire);
-			//document.getElementById('solutions').readonly=true;
-			document.getElementById('solutions').disabled=false;*/
 			grammaire_get(grammaire);
 		}
 	}
@@ -257,21 +248,35 @@ function setCheckedValue(radioObj, newValue) {
 }
 
 function saisie() {
-	document.getElementById('grammaire').disabled=false;
-	document.getElementById('grammaire2').value='';
-	document.getElementById('grammaire2').disabled=true;
-	//document.getElementById('grammaire2').readonly=false;
+	//alert('saisie');
+	
+	document.getElementById('grammaire').readOnly=false;
+	//document.getElementById('grammaire').removeAttribute('readOnly');
+	//document.getElementById('grammaire').disabled=false;
+	
+	/*var text=document.getElementById('gram_id').innerHTML;
+	var old=document.getElementById('grammaire').value;
+	var content='<textarea'+text.substring(text.indexOf(' cols=',0),text.length)
+	content=content.substring(content.indexOf('>',0)+1,0)+old+content.substring(content.indexOf('<',1),content.length);
+	document.getElementById('gram_id').innerHTML=content;//*/
+
+	//document.getElementById('grammaire').value='';
 	document.getElementById('solutions').value='';
 	document.getElementById('solutions').disabled=true;
-	//document.getElementById('solutions').readonly=false;
 }
 
 function grammaire_get(fichier) {
-	document.getElementById('grammaire').disabled=true;
-	document.getElementById('grammaire').value='';
+	//alert('grammaire');
 	
-	document.getElementById('grammaire2').readonly=true;
-	document.getElementById('grammaire2').disabled=false;
+	document.getElementById('grammaire').value='';
+	document.getElementById('grammaire').readOnly=true;
+	//document.getElementById('grammaire').setAttribute('readOnly','readonly');
+	//document.getElementById('grammaire').disabled=true;
+	
+	/*var text=document.getElementById('gram_id').innerHTML;
+	var old=document.getElementById('grammaire').value;
+	var content=text.substring(0,text.indexOf(' cols=',0))+' readonly="readonly" '+text.substring(text.indexOf(' cols=',0),text.length);
+	document.getElementById('gram_id').innerHTML=content;//*/
 	
 	var xhr_object = null;
 	if(window.XMLHttpRequest) // Firefox
@@ -287,14 +292,14 @@ function grammaire_get(fichier) {
 	
 	xhr_object.onreadystatechange = function() { 
 		if(xhr_object.readyState == 4) {
-			document.getElementById('grammaire2').value=xhr_object.responseText;
+			document.getElementById('grammaire').value=xhr_object.responseText;
 		}
 	}
 	xhr_object.send(null);//*/
 	/* synchrone */
 	xhr_object.open("GET", fichier+'.gra', false);
 	xhr_object.send(null);
-	if(xhr_object.readyState == 4) document.getElementById('grammaire2').value=xhr_object.responseText;//*/
+	if(xhr_object.readyState == 4) document.getElementById('grammaire').value=xhr_object.responseText;//*/
 	
 	solution_get(fichier);
 }
@@ -331,7 +336,7 @@ EOF;
 			echo '<h1>Algorithme Cocke Younger Kasami</h1>'."\r\n";
 			echo '<table border="1">'."\r\n";
 			echo '	<tr>'."\r\n";
-			echo '		<td width="34%">'."\r\n";
+			echo '		<td width="50%">'."\r\n";
 			echo '<form action="'.$PHP_SELF.'" name="formulaire" method="post">'."\r\n";
 			echo 'Veuillez saisir le mot et choisir la grammaire<br/>'."\r\n";
 			echo '<input type="text" name="mot" size="53"/><br/>'."\r\n";
@@ -342,12 +347,11 @@ EOF;
 			}
 			echo '<input type="radio" name="grammaire_file" value="saisie" onclick="saisie();"/>saisie'."\r\n";
 			echo '<br/>'."\r\n";
-			echo '<textarea cols="40" rows="30" id="grammaire" name="grammaire" disabled="disabled"></textarea><br/>'."\r\n";
+			echo '<div id="gram_id" style="display:inline"><textarea cols="40" rows="30" id="grammaire" name="grammaire"></textarea></div><br/>'."\r\n";
 			echo '<input type="submit" value="Valider"/><input type="reset" value="Reset"><br/>'."\r\n";
 			echo '<form>'."\r\n";
 			echo '</td>'."\r\n";
-			echo '		<td width="33%"><br/><br/>Contenu de la grammaire :<br/><textarea cols="40" rows="30" id="grammaire2" readonly="readonly"></textarea></td>'."\r\n";
-			echo '		<td width="33%"><br/><br/>Solutions typiques :<br/><textarea cols="40" rows="30" id="solutions" readonly="readonly"></textarea></td>'."\r\n";
+			echo '		<td width="50%"><br/><br/>Solutions typiques :<br/><textarea cols="40" rows="30" id="solutions" readonly="readonly"></textarea></td>'."\r\n";
 			echo '	</tr>'."\r\n";
 			echo '</table>'.'<br/>'."\r\n";
 			die();
@@ -369,19 +373,14 @@ EOF;
 			}
 		}
 	}
-	/*if( argc==2 && ( strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0 ) ) {
-		printf("Usage : %s\n",argv[0]);
-		printf("Tell if a word belong to a language.\n");
-		return EXIT_SUCCESS;
-	}*/
-	// déclaration variables
-	// 1° niveau : position, 2° niveau = case, $= lettres possibles, du haut vers le bas
+	// Déclaration des variables
+	// 1° niveau : ligne, 2° niveau = colonne, $= lettres possibles, du haut vers le bas
 	$pyramide_cky=array();
-	$pyramide_arbre=array(); //*/
-	// forme voulue pour la grammaire : qqch_G -> qqch_D
+	$pyramide_arbre=array();
+	// Forme voulue pour la grammaire : qqch_G -> qqch_D
 	$grammaireG=array();
 	$grammaireD=array();
-	// saisie données
+	// Lecture de la grammaire
 	if( file_exists('math.gra') ) {
 		if( array_key_exists('HTTP_HOST',$_SERVER) && !array_key_exists('grammaire',$_REQUEST) /*&& array_key_exists('mot',$_REQUEST)/**/ )
 			$file=fopen("math.gra",'r');
@@ -411,10 +410,10 @@ EOF;
 		grammar_read($file,$grammaireG,$grammaireD);
 		fclose($file);
 	}
-	// vérification grammaire ( langage type 0,1,2,3 ou pas langage )
-	// grammaire vérifié
-	//echo '<pre>';var_dump($grammaireG,$grammaireD);echo '</pre>';die();
-	// saisie du mot à vérifier
+	// Grammaire lue
+	// Amélioration possible : vérification de la grammaire ( langage type 0,1,2,3 ou pas langage )
+	// Grammaire vérifié
+	// Lecture du mot à vérifier
 	$mot='';
 	if(array_key_exists('HTTP_HOST',$_SERVER)) {
 		if(array_key_exists('mot',$_REQUEST)) $mot=$_REQUEST['mot'];
@@ -439,38 +438,38 @@ EOF;
 			$pyramide_arbre[$i][$j]='';
 		}
 	}
-	// traitement ligne un
+	// Mot lu
+	// Traitement de la première ligne
 	for($i=0;$i<$taille;$i++) {
 		$pyramide_cky[$taille-1][$i]=grammar_read_predecessor(substr($mot,$i,1),$grammaireG,$grammaireD);
 		$pyramide_arbre[$taille-1][$i]='';
 	}
-	// boucle pour chaque ligne, on descend à gauche et on monte à droite
+	// Boucle pour chaque ligne, on descend à gauche et on monte à droite
 	for($ligne=($taille-2); $ligne>=0; $ligne--) { 
-			// Toutes les cellules des lignes (autant de cellules que le numéro de la ligne)
-			for($cellule=0; $cellule<=$ligne;$cellule++) {
+			// Toutes les colonnes de chaque lignes (autant de colonnes que le numéro de la ligne)
+			for($colonne=0; $colonne<=$ligne;$colonne++) {
 				// Initialisation à vide
-				$pyramide_cky[$ligne][$cellule] = "";
-				$pyramide_arbre[$ligne][$cellule] = "";
+				$pyramide_cky[$ligne][$colonne] = "";
+				$pyramide_arbre[$ligne][$colonne] = "";
 				// Suite de l'algo
 				for($cpt=0;$cpt<$taille-$ligne-1;$cpt++) {
-						$trouve = questCeQuiDonneD($pyramide_cky[$taille-1-$cpt][$cellule], $pyramide_cky[$ligne+1+$cpt][$cellule+1+$cpt],
+						$trouve = questCeQuiDonneD($pyramide_cky[$taille-1-$cpt][$colonne], $pyramide_cky[$ligne+1+$cpt][$colonne+1+$cpt],
 							$grammaireG,	$grammaireD);
 						// Premier ajout
 						if(strlen($trouve)>0) {
-							$pyramide_cky[$ligne][$cellule] .= ",".$trouve;
+							$pyramide_cky[$ligne][$colonne] .= ",".$trouve;
 						}
-						if(strlen($pyramide_cky[$ligne][$cellule])>0 && $pyramide_cky[$ligne][$cellule][0]==',')
-							$pyramide_cky[$ligne][$cellule] = substr($pyramide_cky[$ligne][$cellule],1);
+						if(strlen($pyramide_cky[$ligne][$colonne])>0 && $pyramide_cky[$ligne][$colonne][0]==',')
+							$pyramide_cky[$ligne][$colonne] = substr($pyramide_cky[$ligne][$colonne],1);
 				}
-				$pyramide_cky[$ligne][$cellule] = nettoyer($pyramide_cky[$ligne][$cellule]);
+				// Nettoyage des doublons
+				$pyramide_cky[$ligne][$colonne] = nettoyer($pyramide_cky[$ligne][$colonne]);
 			}
 		}
-	// copie de l'arbre
-	// résolution de l'arbre ( 1° solution, plus si possible et si temps dispo
-	//$motOK = contientS($pyramide_cky[0][0]);
+	// Copie de l'arbre
+	// Résolution de l'arbre ( 1° solution, plus si possible et si temps dispo )
 	//$motOK = preg_match('#(^|,)S(,|$)#',$pyramide_cky[0][0]);
-	//echo 'string('.strlen($pyramide_cky[0][0]).')="'.$pyramide_cky[0][0].'"<br/>'."\r\n";
-	$motOK = (strpos($pyramide_cky[0][0],'S')!==false);
+	$motOK = (strpos($pyramide_cky[0][0],'S')!==false); // On peux simplifier la vérification grace à la connaissance du contenu des cellules
 	if($motOK) {
 		if($cmd) echo 'Le mot est vérifié.<br/>'."\r\n";
 		// Si OK, alors on surligne les cases pour donner une idée de l'arbre
@@ -483,49 +482,46 @@ EOF;
 	else {
 		echo 'Le mot n\'est pas vérifié.<br/>'."\r\n";
 		echo 'L\'expression n\'est pas vérifiée (ne contient pas "S" au somment de la pyramide). ECHEC<br/>'."\r\n";
-		//die(); // voir la pyramide cky peux être intéréssant pour savoir quelle(s) modif(s) permettrai(en)t d'appartenir au language
+		//die(); // Voir la pyramide cky peux être intéréssant pour savoir quelle(s) modification(s) permettrai(en)t d'appartenir au language
 	}
-	// paramètre affichage pyramide
+	// Paramètre d'affichage pyramide
 	$col=20;
-	// affichage pyramide cky
+	// Affichage de la pyramide cky
 	echo 'pyramide cky :<br/>'."\r\n";
 	echo '<table>'."\r\n";
 	for($i=0;$i<$taille;$i++) {
 		echo '	<tr>'."\r\n";
 		for($j=0;$j<($taille-$i-1);$j++) echo '		<td width="'.$col.'" border="0">&nbsp;</td>'."\r\n";
 		for($j=0;$j<$i+1;$j++) {
-			//echo 'cellule ('.($i+1).','.($j+1).') = '.$pyramide_cky[$i][$j].'<br/>'."\r\n";
 			echo '		<td width="'.(2*$col).'" style="border-width:1px;border-style:solid;border-color:#000000;text-align:center;" colspan="2">'.((strlen($pyramide_cky[$i][$j])>0)?$pyramide_cky[$i][$j]:'&nbsp;').'</td>'."\r\n";
 		}
 		for($j=0;$j<($taille-$i-1);$j++) echo '		<td width="'.$col.'" border="0">&nbsp;</td>'."\r\n";
 		echo '	</tr>'."\r\n";
 	}
 	echo '</table>'."\r\n";
-	if(!$motOK) die(); // arbre vide si mot pas trouvé donc aucun intérêt
+	if(!$motOK) die(); // La pyramide arbre est vide si le mot n'a pas été trouvé donc aucun intérêt d'afficher une pyramide vide
 	echo '<br/>'."\r\n";
-	// affichage pyramide arbre
+	// Affichage pyramide arbre
 	echo 'pyramide arbre :<br/>'."\r\n";
 	echo '<table>'."\r\n";
 	for($i=0;$i<$taille;$i++) {
 		echo '	<tr>'."\r\n";
 		for($j=0;$j<($taille-$i-1);$j++) echo '		<td width="'.$col.'" border="0">&nbsp;</td>'."\r\n";
 		for($j=0;$j<$i+1;$j++) {
-			//echo 'cellule ('.($i+1).','.($j+1).') = '.$pyramide_arbre[$i][$j].'<br/>'."\r\n";
 			echo '		<td width="'.(2*$col).'" style="border-width:1px;border-style:solid;border-color:#000000;text-align:center;" colspan="2">'.((strlen($pyramide_arbre[$i][$j])>0)?$pyramide_arbre[$i][$j]:'&nbsp;').'</td>'."\r\n";
 		}
 		for($j=0;$j<($taille-$i-1);$j++) echo '		<td width="'.$col.'" border="0">&nbsp;</td>'."\r\n";
 		echo '	</tr>'."\r\n";
 	}
 	echo '</table>'."\r\n";
-	// fin affichage
+	// Fin de l'affichage
 	echo '<br/>'."\r\n";
 	echo 'Programme fini.<br/>'."\r\n";
 	if($cmd) fflush($cin);
-	//return EXIT_SUCCESS;
 }
 
 main();
-//
+// Fin du script
 ?>
 
 </body>
