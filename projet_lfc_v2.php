@@ -2,18 +2,22 @@
 <head>
 <title>projet lfc</title>
 <style>
-textarea[disabled] {
-	background-color: #cccccc;
-}
 textarea[readonly] {
-	background-color: #cccccc;
+	<!--background-color: #FF0000;-->
+	background-color: #CCCCCC;
+}
+textarea[disabled] {
+	background-color: #CCCCCC;
 }
 textarea {
 	background-color: #FFFFFF;
 }
+TD {
+	vertical-align: top;
+}
 </style>
 </head>
-<body>
+<body onload="onload();">
 
 <?php
 
@@ -198,19 +202,99 @@ function main() {
 	if(array_key_exists('HTTP_HOST',$_SERVER)) {
 		if( !array_key_exists('mot',$_REQUEST) && !array_key_exists('grammaire_file',$_REQUEST) && !array_key_exists('grammaire',$_REQUEST) ) {
 			//formulaire
-			echo '<form action="'.$PHP_SELF.'" method="post">'."\r\n";
+			echo '<script type="text/javascript"><!--'."\r\n";
+			echo <<<EOF
+
+function onload() {
+	/*if(document.forms['formulaire'].elements['grammaire'].value.length>0) {
+		setCheckedValue(document.forms['formulaire'].elements['grammaire_file'],'saisie');
+		document.getElementById('grammaire').disabled=false;
+		document.getElementById('grammaire2').value='';
+	}
+	else {
+		setCheckedValue(document.forms['formulaire'].elements['grammaire_file'],'math.gra');
+		grammaire_get('math.gra');
+	}*/
+	var grammaire='';
+	var radio=document.forms['formulaire'].elements['grammaire_file'];
+	if(radio.length == undefined) {
+		if(radio.checked) grammaire=radio.value;
+	}
+	for(var i = 0; i < radio.length; i++) {
+		if(radio[i].checked) grammaire=radio[i].value;
+	}
+	//alert(grammaire);
+	if(grammaire.length>0) {
+		setCheckedValue(document.forms['formulaire'].elements['grammaire_file'],grammaire);
+		if(grammaire=='saisie') {
+			document.getElementById('grammaire').disabled=false;
+			document.getElementById('grammaire2').value='';
+		}
+		else {
+			document.getElementById('grammaire').disabled=true;
+			grammaire_get(grammaire);
+		}
+	}
+}
+function setCheckedValue(radioObj, newValue) {
+	if(!radioObj)
+		return;
+	var radioLength = radioObj.length;
+	if(radioLength == undefined) {
+		radioObj.checked = (radioObj.value == newValue);
+		return;
+	}
+	for(var i = 0; i < radioLength; i++) {
+		radioObj[i].checked = false;
+		if(radioObj[i].value == newValue) {
+			radioObj[i].checked = true;
+		}
+	}
+}
+
+function grammaire_get(fichier) {
+	var xhr_object = null;
+	if(window.XMLHttpRequest) // Firefox
+		xhr_object = new XMLHttpRequest();
+	else if(window.ActiveXObject) // Internet Explorer
+		xhr_object = new ActiveXObject("Microsoft.XMLHTTP");
+	else { // XMLHttpRequest non supporté par le navigateur
+		alert("Votre navigateur ne supporte pas les objets XMLHTTPRequest...");
+		return;
+	}
+	var url = "http://ayumifr.free.fr/projet_lfc/"+fichier;
+	//alert(url);return;
+	xhr_object.open("GET", fichier, true);
+	
+	xhr_object.onreadystatechange = function() { 
+		if(xhr_object.readyState == 4) {
+			document.getElementById('grammaire2').value=xhr_object.responseText;
+		}
+	}
+	xhr_object.send(null);
+}
+EOF;
+			echo '//--></script>';
+			echo '<table border="1">'."\r\n";
+			echo '	<tr>'."\r\n";
+			echo '		<td width="50%">'."\r\n";
+			echo '<form action="'.$PHP_SELF.'" name="formulaire" method="post">'."\r\n";
 			echo 'Veuillez saisir le mot et choisir la grammaire<br/>'."\r\n";
 			echo '<input type="text" name="mot" size="53"/><br/>'."\r\n";
 			foreach(glob_ext('gra') as $file) {
-				echo '<input type="radio" name="grammaire_file" value="'.$file.'" onclick="document.getElementById(\'grammaire\').disabled=true;"';
+				echo '<input type="radio" name="grammaire_file" value="'.$file.'" onclick="document.getElementById(\'grammaire2\').disabled=false;document.getElementById(\'grammaire\').disabled=true;grammaire_get(\''.$file.'\');document.getElementById(\'grammaire\').value=\'\'"';
 				if($file=='math.gra') echo ' checked="checked"';
 				echo '/>'.$file.' &nbsp; '."\r\n";
 			}
-			echo '<input type="radio" name="grammaire_file" value="saisie" onclick="document.getElementById(\'grammaire\').disabled=false;"/>saisie'."\r\n";
+			echo '<input type="radio" name="grammaire_file" value="saisie" onclick="document.getElementById(\'grammaire2\').disabled=true;document.getElementById(\'grammaire\').disabled=false;document.getElementById(\'grammaire2\').value=\'\';"/>saisie'."\r\n";
 			echo '<br/>'."\r\n";
 			echo '<textarea cols="40" rows="30" id="grammaire" name="grammaire" disabled="disabled"></textarea><br/>'."\r\n";
 			echo '<input type="submit" value="Valider"/><input type="reset" value="Reset"><br/>'."\r\n";
 			echo '<form>'."\r\n";
+			echo '</td>'."\r\n";
+			echo '		<td width="50%"><br/><br/>Contenu de la grammaire :<br/><textarea cols="40" rows="30" id="grammaire2" readonly="readonly"></textarea></td>'."\r\n";
+			echo '	</tr>'."\r\n";
+			echo '</table>'.'<br/>'."\r\n";
 			die();
 		}
 		else {
@@ -280,7 +364,10 @@ function main() {
 		if(array_key_exists('mot',$_REQUEST)) $mot=$_REQUEST['mot'];
 		else $mot='0';$taille=1;
 	}
-	if(!$cmd) $taille=strlen($mot);
+	if(!$cmd) {
+		$taille=strlen($mot);
+		$mot2='';
+	}
 	else do {
 		echo 'Veuillez saisir le mot à vérifier<br/>'."\r\n";
 		$mot2=fgets($cin,4096);
